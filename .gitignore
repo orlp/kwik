@@ -6,7 +6,9 @@ tags
 *.h.d
 *.gch.d
 *.gch
-
 build/
-/kwik
 
+/kwik
+src/grammar.cpp
+src/grammar.h
+src/grammar.out

@@ -1,6 +1,7 @@
 optflags = -O2
 cflags = -std=c99 -Wall -pedantic
 cxxflags = -std=c++11 -Wall -pedantic
+linkflags =
 xtype =
 
 rule c
@@ -12,21 +13,30 @@ rule cxx
     command = g++ $xtype -MMD -MF $out.d $optflags $cxxflags -c $in -o $out
 
 rule clink
-    command = gcc $optflags $in -o $out
+    command = gcc $optflags $linkflags $in -o $out
 
 rule cxxlink
-    command = g++ $optflags $in -o $out
+    command = g++ $optflags $linkflags $in -o $out
 
-build build/lemon: clink build/lemon.o
-build build/lemon.o: c src/lemon/lemon.c
-    cflags = -std=c99 -Wall
-
+rule lemon
+    command = build/lemon -T$lemontemplate $in
 
 build src/precompile.h.gch: cxx src/precompile.h
     xtype = -x c++-header
 
+# Lemon parser generator.
+build build/lemon: clink build/lemon.o
+build build/lemon.o: c src/lemon/lemon.c
+    # -pedantic generates warnings with lemon.
+    cflags = -std=c99 -Wall 
+build src/grammar.cpp src/grammar.h src/grammar.out: lemon src/grammar.y | build/lemon
+    lemontemplate = src/lemon/lempar.c
+
+
+
+build build/grammar.o: cxx src/grammar.cpp | src/precompile.h.gch
 build build/kwik.o: cxx src/kwik.cpp | src/precompile.h.gch
-build kwik: cxxlink build/kwik.o
+build kwik: cxxlink build/kwik.o build/grammar.o
 
 default kwik
 
