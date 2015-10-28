@@ -1,4 +1,12 @@
 tags
+.ninja*
 *.o
+*.cpp.d
+*.c.d
+*.h.d
+*.gch.d
 *.gch
-kwik
+
+build/
+/kwik
+
