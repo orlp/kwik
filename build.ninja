@@ -1,0 +1,32 @@
+optflags = -O2
+cflags = -std=c99 -Wall -pedantic
+cxxflags = -std=c++11 -Wall -pedantic
+xtype =
+
+rule c
+    depfile = $out.d
+    command = gcc $xtype -MMD -MF $out.d $optflags $cflags -c $in -o $out
+    
+rule cxx
+    depfile = $out.d
+    command = g++ $xtype -MMD -MF $out.d $optflags $cxxflags -c $in -o $out
+
+rule link
+    command = g++ $optflags $in -o $out
+
+build src/lemon/lemon: j
+
+build src/precompile.h.gch: cxx src/precompile.h
+    xtype = -x c++-header
+
+build build/kwik.o: cxx src/kwik.cpp | src/precompile.h.gch
+
+build kwik: link build/kwik.o
+
+
+default kwik
+
+
+
+
+
