@@ -1,21 +1,18 @@
 #include "precompile.h"
+
+#include <set>
+#include <string>
+#include <array>
+#include <unordered_map>
+
 #include "lexer.h"
 #include "exception.h"
 #include "grammar.h"
 #include "parser.h"
 
-
-static std::array<int, 128> make_ch_to_tok() {
-    std::array<int, 128> ch_to_tok = {0};
-    ch_to_tok['{'] = KWIK_TOK_OPEN_BRACE;
-    ch_to_tok['}'] = KWIK_TOK_CLOSE_BRACE;
-    ch_to_tok['('] = KWIK_TOK_OPEN_PAREN;
-    ch_to_tok[')'] = KWIK_TOK_CLOSE_PAREN;
-    ch_to_tok[';'] = KWIK_TOK_SEMICOLON;
-    return ch_to_tok;
-}
-    
-static std::array<int, 128> ch_to_tok = make_ch_to_tok();
+static const std::unordered_map<std::string, int> keywords = {
+    {"let", KWIK_TOK_LET}
+};
 
 static const std::set<std::string> int_suffixes_set = {
     "f32", "f64",
@@ -23,6 +20,59 @@ static const std::set<std::string> int_suffixes_set = {
     "u8", "u16", "u32", "u64",
     "i"
 };
+
+
+static std::array<int, 128> make_simple_tok_table() {
+    std::array<int, 128> simple_tok_table = {0};
+    simple_tok_table['{'] = KWIK_TOK_OPEN_BRACE;
+    simple_tok_table['}'] = KWIK_TOK_CLOSE_BRACE;
+    simple_tok_table['('] = KWIK_TOK_OPEN_PAREN;
+    simple_tok_table[')'] = KWIK_TOK_CLOSE_PAREN;
+    simple_tok_table[';'] = KWIK_TOK_SEMICOLON;
+    simple_tok_table['='] = KWIK_TOK_EQUALS;
+    return simple_tok_table;
+}
+    
+static std::array<int, 128> simple_tok_table = make_simple_tok_table();
+
+enum class LexerJumpIndex : unsigned char {
+    ERROR = 0,
+    NULL_EOF,
+    SPACE,
+    NEWLINE,
+    COMMENT,
+    DIGIT,
+    ALPHA,
+    DOT,
+    SIMPLE_TOK,
+};
+
+static std::array<LexerJumpIndex, 128> make_jump_table() {
+    using I = LexerJumpIndex;
+    std::array<LexerJumpIndex, 128> jump_table;
+    for (int i = 0; i < 128; ++i) jump_table[i] = I::ERROR;
+
+    auto maps = op::make_array(
+        std::make_pair("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", I::ALPHA),
+        std::make_pair("0123456789", I::DIGIT),
+        std::make_pair("{}();=", I::SIMPLE_TOK)
+    );
+
+    for (auto map : maps) {
+        for (const char* p = map.first; *p; ++p) {
+            jump_table[*p] = map.second;
+        }
+    }
+
+    jump_table[0] = I::NULL_EOF;
+    jump_table[' '] = I::SPACE;
+    jump_table['\n'] = I::NEWLINE;
+    jump_table['#'] = I::COMMENT;
+    jump_table['.'] = I::DOT;
+    return jump_table;
+}
+
+static std::array<LexerJumpIndex, 128> jump_table = make_jump_table();
 
 
 
@@ -50,9 +100,7 @@ namespace kwik {
             col += 2;
         }
 
-        while (std::isdigit(*it)) {
-            value += *it++; ++col;
-        }
+        while (std::isdigit(*it)) { value += *it++; ++col; }
 
         if (!base) {
             if (*it == '.') {
@@ -60,68 +108,78 @@ namespace kwik {
                 value += *it++; ++col;
             }
             
-            while (std::isdigit(*it)) {
-                value += *it++; ++col;
-            }
+            while (std::isdigit(*it)) { value += *it++; ++col; }
         }
 
         std::string suffix;
         size_t suffix_col = col;
-        while (std::isalnum(*it)) {
-            suffix += *it++; ++col;
-        }
+        while (std::isalnum(*it)) { suffix += *it++; ++col; }
 
         if (suffix.size()) {
             if (floating && suffix != "f32" && suffix != "f64") {
-                throw SyntaxError(
-                    "invalid float suffix '" + suffix + "'",
-                    filename, line, suffix_col
-                );
+                throw SyntaxError("invalid float suffix '" + suffix + "'",
+                                  filename, line, suffix_col);
             } else if (!floating && !int_suffixes_set.count(suffix)) {
-                throw SyntaxError(
-                    "invalid integer suffix '" + suffix + "'",
-                    filename, line, suffix_col
-                );
+                throw SyntaxError("invalid integer suffix '" + suffix + "'",
+                                  filename, line, suffix_col);
             }
         }
 
-        return {KWIK_TOK_NUM, line, startcol, new std::string(value + suffix)};
+        return {KWIK_TOK_NUM, line, startcol, value + suffix};
+    }
+
+    Token Lexer::lex_ident(const ParseState& s) {
+        int startcol = col++;
+        std::string ident(1, *it++);
+        while (std::isalnum(*it) || *it == '_') { ident += *it++; ++col; }
+
+        auto it = keywords.find(ident);
+        if (it == keywords.end()) return {KWIK_TOK_IDENT, line, startcol, ident};
+        return {it->second, line, startcol};
     }
 
     Token Lexer::get_token(const ParseState& s) {
         while (true) {
-            int startcol = col++;
-            char c = *it++;
-            switch (c) {
-            case 0: return {0, line, startcol, 0};
-            case ' ': break;
-            case '\n':
-                col = 1;
-                ++line;
-                if (s.nested_paren == 0) return {KWIK_TOK_NL, line-1, startcol, 0};
-                break;
-            case '#':
-                // Comment, skip up to (but not including) newline.
-                while (*it && *it != '\n') { it++; col++; }
-                break;
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-                --it; --col;
-                return lex_num(s);
-            case '.':
-                if (std::isdigit(it[0])) {
-                    --it; --col;
-                    return lex_num(s);
-                }
-
-                // Fallthrough.
-            default:
-                if (c >= 0 && c < 128 && ch_to_tok[int(c)]) {
-                    return {ch_to_tok[int(c)], line, startcol, 0};
-                }
-
+            int startcol = col;
+            char c = *it;
+            if (c < 0 || c >= 128) {
                 throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
                                         filename, line, startcol);
+            }
+
+            // For performance it's important that the order here matches the order of
+            // the jump table defined above.
+            using I = LexerJumpIndex;
+            switch (jump_table[c]) {
+            case I::ERROR:
+                ++it; ++col;
+                throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
+                                        filename, line, startcol);
+            case I::NULL_EOF:
+                ++it; ++col;
+                return {0, line, startcol};
+            case I::SPACE:
+                ++it; ++col;
+                break;
+            case I::NEWLINE:
+                ++it; col = 1; ++line;
+                if (s.nested_paren == 0) return {KWIK_TOK_NL, line-1, startcol};
+                break;
+            case I::COMMENT:
+                while (*it && *it != '\n') { it++; col++; }
+                break;
+            case I::DIGIT:
+                return lex_num(s);
+            case I::ALPHA:
+                 return lex_ident(s);
+            case I::DOT:
+                if (std::isdigit(it[0])) {
+                    return lex_num(s);
+                }
+                // Fallthrough.
+            case I::SIMPLE_TOK:
+                ++it; ++col;
+                return {simple_tok_table[c], line, startcol};
             }
         }
     }

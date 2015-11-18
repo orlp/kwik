@@ -12,9 +12,17 @@
 #include "libop/op.h"
 #include "parser.h"
 #include "lexer.h"
+
+void tok_del(kwik::Token& tok);
 }
 
-%token_destructor { if ($$.val) delete $$.val; }
+%code {
+void tok_del(kwik::Token& tok) {
+    if (tok.val) delete tok.val;
+}
+}
+
+%token_destructor { tok_del($$); }
 
 %extra_argument { kwik::ParseState* s }
 
@@ -52,6 +60,8 @@ statement_list ::= statement_list nl statement.
 
 statement ::= expr.
 statement ::= compound_statement.
+statement ::= LET IDENT EQUALS expr.
 
-expr ::= NUM(a). { op::print(*a.val); }
+expr ::= NUM(a). { op::print(a.as_str()); tok_del(a); }
 expr ::= open_paren expr close_paren.
+expr ::= IDENT.

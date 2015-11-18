@@ -12,6 +12,7 @@ namespace kwik {
 
     private:
         Token lex_num(const ParseState& s);
+        Token lex_ident(const ParseState& s);
 
         std::string src;
         std::string filename;

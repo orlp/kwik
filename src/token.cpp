@@ -14,7 +14,11 @@ namespace kwik {
         case KWIK_TOK_OPEN_BRACE: return "{";
         case KWIK_TOK_CLOSE_BRACE: return "}";
         case KWIK_TOK_SEMICOLON: return ";";
-        case KWIK_TOK_NUM: return *val;
+        case KWIK_TOK_EQUALS: return "=";
+        case KWIK_TOK_LET: return "let";
+        case KWIK_TOK_NUM:
+        case KWIK_TOK_IDENT:
+             return *val;
         }
 
         throw InternalCompilerError("unknown token type");
