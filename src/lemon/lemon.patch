@@ -1,0 +1,30 @@
+--- lemon.c	2015-11-18 05:22:10.735033697 +0100
++++ lemon_patched.c	2015-11-18 05:17:36.579021671 +0100
+@@ -3810,7 +3810,7 @@
+ 
+   in = tplt_open(lemp);
+   if( in==0 ) return;
+-  out = file_open(lemp,".c","wb");
++  out = file_open(lemp,".cpp","wb");
+   if( out==0 ){
+     fclose(in);
+     return;
+--- lempar.c	2015-11-18 05:20:27.763029180 +0100
++++ lempar_patched.c	2015-11-18 05:27:56.007048842 +0100
+@@ -361,6 +361,7 @@
+ /********* End destructor definitions *****************************************/
+     default:  break;   /* If no destructor action specified: do nothing */
+   }
++  ParseARG_STORE; /* Suppress warning about unused %extra_argument var */
+ }
+ 
+ /*
+@@ -640,7 +641,7 @@
+ %%
+ /********** End reduce actions ************************************************/
+   };
+-  assert( yyruleno>=0 && yyruleno<sizeof(yyRuleInfo)/sizeof(yyRuleInfo[0]) );
++  assert( yyruleno>=0 && yyruleno<(int)(sizeof(yyRuleInfo)/sizeof(yyRuleInfo[0])) );
+   yygoto = yyRuleInfo[yyruleno].lhs;
+   yysize = yyRuleInfo[yyruleno].nrhs;
+   yypParser->yyidx -= yysize;

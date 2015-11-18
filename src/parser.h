@@ -1,15 +1,21 @@
 #ifndef KWIK_PARSER_STATE_H
 #define KWIK_PARSER_STATE_H
 
-#include "grammar.h"
+#include "token.h"
 
-struct ParserState {
-    int num_errors;
-};
+namespace kwik {
+    struct ParseState {
+        ParseState(std::string filename)
+        : filename(filename), num_errors(0), nested_paren(0) { }
 
-void* LemonParseAlloc(void* (*alloc_proc)(size_t));
-void LemonParse(void* state, int token_id, double token_data, ParserState* s);
-void LemonParseFree(void*, void(*free_proc)(void*));
+        std::string filename;
+        int num_errors;
+        int nested_paren;
+    };
+
+    void parse(const std::string& src, const std::string& filename);
+}
+
 
 
 #endif

@@ -1,14 +1,13 @@
 #include "precompile.h"
 
+#include <string>
+#include <cstdio>
 #include "libop/op.h"
+
 #include "parser.h"
 #include "exception.h"
 
-static std::string read_file(const std::string& filename) {
-    auto file = std::fopen(filename.c_str(), "r");
-    if (!file) throw kwik::FilesystemError(std::strerror(errno));
-    OP_SCOPE_EXIT { std::fclose(file); };
-
+static std::string read_full_stream(std::FILE* file) {
     std::string result;
     std::array<char, 4096> buf;
     while (true) {
@@ -22,23 +21,35 @@ static std::string read_file(const std::string& filename) {
     return result;
 }
 
+static std::string read_file(const std::string& filename) {
+    if (filename == "<stdin>") return read_full_stream(stdin);
+
+    auto file = std::fopen(filename.c_str(), "r");
+    if (!file) throw kwik::FilesystemError(std::strerror(errno));
+    OP_SCOPE_EXIT { std::fclose(file); };
+    return read_full_stream(file);
+}
+
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        op::printf("Usage: {} <file>", argv[0]);
+    std::vector<std::string> args {argv, argv + argc};
+    if (args.size() < 2) {
+        op::printf("Usage: {} <file>\n", args[0]);
         return 1;
     }
 
+    auto filename = args[1];
+    if (filename == "-") filename = "<stdin>";
+
     try {
-        std::string src = read_file(argv[1]);
-        void* lemon = LemonParseAlloc(malloc);
-        OP_SCOPE_EXIT { LemonParseFree(lemon, free); };
+        auto src = read_file(args[1]);
+        kwik::parse(src, filename);
         return 0;
     } catch (const kwik::CompilationError& e) {
-        op::printf("error: {}:{}:{} {}\n", argv[1], e.line, e.col, e.what());
+        op::printf("error: {}:{}:{} {}\n", e.filename, e.line, e.col, e.what());
     } catch (const kwik::FilesystemError& e) {
-        op::printf("error: {}: {}\n", argv[1], e.what());
+        op::printf("error: {}: {}\n", filename, e.what());
     }
-    
+
     return 1;
 }
