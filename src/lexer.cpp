@@ -23,11 +23,12 @@ static const std::set<std::string> int_suffixes_set = {
 
 
 static std::array<int, 128> make_simple_tok_table() {
-    std::array<int, 128> simple_tok_table = {0};
+    std::array<int, 128> simple_tok_table = {{0}};
     simple_tok_table['{'] = KWIK_TOK_OPEN_BRACE;
     simple_tok_table['}'] = KWIK_TOK_CLOSE_BRACE;
     simple_tok_table['('] = KWIK_TOK_OPEN_PAREN;
     simple_tok_table[')'] = KWIK_TOK_CLOSE_PAREN;
+    simple_tok_table[':'] = KWIK_TOK_COLON;
     simple_tok_table[';'] = KWIK_TOK_SEMICOLON;
     simple_tok_table['='] = KWIK_TOK_EQUALS;
     return simple_tok_table;
@@ -50,20 +51,15 @@ enum class LexerJumpIndex : unsigned char {
 static std::array<LexerJumpIndex, 128> make_jump_table() {
     using I = LexerJumpIndex;
     std::array<LexerJumpIndex, 128> jump_table;
-    for (int i = 0; i < 128; ++i) jump_table[i] = I::ERROR;
 
-    auto maps = op::make_array(
-        std::make_pair("_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", I::ALPHA),
-        std::make_pair("0123456789", I::DIGIT),
-        std::make_pair("{}();=", I::SIMPLE_TOK)
-    );
-
-    for (auto map : maps) {
-        for (const char* p = map.first; *p; ++p) {
-            jump_table[*p] = map.second;
-        }
+    for (int c = 0; c < 128; ++c) {
+        if (simple_tok_table[c]) jump_table[c] = I::SIMPLE_TOK;
+        else if (std::isdigit(c)) jump_table[c] = I::DIGIT;
+        else if (std::isalpha(c)) jump_table[c] = I::ALPHA;
+        else jump_table[c] = I::ERROR;
     }
 
+    jump_table['_'] = I::ALPHA;
     jump_table[0] = I::NULL_EOF;
     jump_table[' '] = I::SPACE;
     jump_table['\n'] = I::NEWLINE;
@@ -134,14 +130,14 @@ namespace kwik {
         while (std::isalnum(*it) || *it == '_') { ident += *it++; ++col; }
 
         auto it = keywords.find(ident);
-        if (it == keywords.end()) return {KWIK_TOK_IDENT, line, startcol, ident};
+        if (it == keywords.end()) return {KWIK_TOK_NAME, line, startcol, ident};
         return {it->second, line, startcol};
     }
 
     Token Lexer::get_token(const ParseState& s) {
         while (true) {
             int startcol = col;
-            char c = *it;
+            int c = *it;
             if (c < 0 || c >= 128) {
                 throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
                                         filename, line, startcol);
@@ -176,7 +172,9 @@ namespace kwik {
                 if (std::isdigit(it[0])) {
                     return lex_num(s);
                 }
-                // Fallthrough.
+                
+                throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
+                                        filename, line, startcol);
             case I::SIMPLE_TOK:
                 ++it; ++col;
                 return {simple_tok_table[c], line, startcol};

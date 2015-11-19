@@ -1,48 +1,41 @@
-optflags = -O2
+builddir = build
+optflags = -O0
+dbgflags = -ggdb
 cflags = -std=c99 -Wall -pedantic
-cxxflags = -g -std=c++11 -Wall -pedantic
-linkflags = -g
+cxxflags = -std=c++11 -Wall -pedantic
+linkflags = 
+cxxlinkflags = 
 xtype =
 
 rule c
     depfile = $out.d
-    command = gcc $xtype -MMD -MF $out.d $optflags $cflags -c $in -o $out
+    command = gcc $xtype -MMD -MF $out.d $optflags $dbgflags $cflags -c $in -o $out
     
 rule cxx
     depfile = $out.d
-    command = g++ $xtype -MMD -MF $out.d $optflags $cxxflags -c $in -o $out
+    command = g++ $xtype -MMD -MF $out.d $optflags $dbgflags $cxxflags -c $in -o $out
 
 rule clink
-    command = gcc $optflags $linkflags $in -o $out
+    command = gcc $optflags $dbgflags $linkflags $in -o $out
 
 rule cxxlink
-    command = g++ $optflags $linkflags $in -o $out
+    command = g++ $optflags $dbgflags $cxxlinkflags $in -o $out
 
 rule lemon
-    # We touch all output because lemon doesn't touch unchanged output.
-    command = build/lemon -T$lemontemplate $in && touch $out
+    command = build/lemon -Tsrc/lemon/lempar.c $in
+    restat = 1
 
 build src/precompile.h.gch: cxx src/precompile.h
     xtype = -x c++-header
-
-# Lemon parser generator.
 build build/lemon.o: c src/lemon/lemon.c
     # -pedantic generates warnings with lemon.
-    cflags = -std=c99 -Wall 
+    cflags = -std=c99 -Wall
 build build/lemon: clink build/lemon.o
 build src/grammar.cpp src/grammar.h src/grammar.out: lemon src/grammar.y | build/lemon
-    lemontemplate = src/lemon/lempar.c
-
-build build/grammar.o: cxx src/grammar.cpp | src/grammar.h src/precompile.h.gch
+build build/grammar.o: cxx src/grammar.cpp | src/precompile.h.gch
 build build/parser.o: cxx src/parser.cpp | src/precompile.h.gch
 build build/lexer.o: cxx src/lexer.cpp | src/precompile.h.gch
 build build/token.o: cxx src/token.cpp | src/precompile.h.gch
 build build/kwik.o: cxx src/kwik.cpp | src/precompile.h.gch
 build kwik: cxxlink build/kwik.o build/grammar.o build/lexer.o build/parser.o build/token.o
-
 default kwik
-
-
-
-
-
