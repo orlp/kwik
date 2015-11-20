@@ -1,5 +1,5 @@
 builddir = build
-optflags = -O0
+optflags = -O2
 dbgflags = -ggdb
 cflags = -std=c99 -Wall -pedantic
 cxxflags = -std=c++11 -Wall -pedantic

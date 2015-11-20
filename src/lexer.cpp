@@ -74,16 +74,17 @@ static std::array<LexerJumpIndex, 128> jump_table = make_jump_table();
 
 
 namespace kwik {
-    Lexer::Lexer(const std::string& src, const std::string& filename)
+    Lexer::Lexer(std::shared_ptr<std::string> src, const std::string& filename)
     : src(src), filename(filename), line(1), col(1) {
-        this->src.push_back(0);
-        this->src.push_back(0);
-        this->src.push_back(0);
-        it = src.data();
-        end = src.data() + src.size();
+        this->src->push_back(0);
+        this->src->push_back(0);
+        this->src->push_back(0);
+        this->src->push_back(0);
+        it = src->data();
+        end = src->data() + src->size();
     }
 
-    Token Lexer::lex_num(const ParseState& s) {
+    Token Lexer::lex_num(ParseState& s) {
         bool base = false;
         bool floating = false;
         int startcol = col;
@@ -124,7 +125,7 @@ namespace kwik {
         return {KWIK_TOK_NUM, line, startcol, value + suffix};
     }
 
-    Token Lexer::lex_ident(const ParseState& s) {
+    Token Lexer::lex_ident(ParseState& s) {
         int startcol = col++;
         std::string ident(1, *it++);
         while (std::isalnum(*it) || *it == '_') { ident += *it++; ++col; }
@@ -134,7 +135,7 @@ namespace kwik {
         return {it->second, line, startcol};
     }
 
-    Token Lexer::get_token(const ParseState& s) {
+    Token Lexer::get_token(ParseState& s) {
         while (true) {
             int startcol = col;
             int c = *it;

@@ -22,7 +22,6 @@ namespace kwik {
         // We don't use shared_ptr because LEMON stores our type in an union.
         std::string* val;
 
-
         std::string as_str();
     };
     

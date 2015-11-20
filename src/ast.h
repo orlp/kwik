@@ -31,7 +31,7 @@ namespace kwik {
 
         struct CompoundStmt : Stmt {
             std::vector<std::unique_ptr<Stmt>> stmt_list;
-            void add_stmt(Stmt* stmt) { stmt_list.emplace_back(stmt); }
+            void append_stmt(Stmt* stmt) { stmt_list.emplace_back(stmt); }
             virtual std::string type_name() { return "compound_stmt"; }
         };
 

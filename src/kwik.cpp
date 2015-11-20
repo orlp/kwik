@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     if (filename == "-") filename = "<stdin>";
 
     try {
-        auto src = read_file(args[1]);
+        auto src = std::make_shared<std::string>(read_file(args[1]));
         kwik::parse(src, filename);
         return 0;
     } catch (const kwik::CompilationError& e) {

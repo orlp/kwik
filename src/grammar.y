@@ -5,11 +5,7 @@
 %include {
 #include "precompile.h"
 
-#include <cassert>
-#include <cmath>
-#include <iostream>
-
-#include "libop/op.h"
+#include "exception.h"
 #include "parser.h"
 #include "lexer.h"
 #include "ast.h"
@@ -19,7 +15,6 @@ using namespace kwik;
 void tok_del(Token tok);
 std::string tok_val(Token tok);
 }
-
 
 %code {
     void tok_del(Token tok) {
@@ -40,6 +35,9 @@ std::string tok_val(Token tok);
     op::printf("{}:{}:{}: syntax error: unexpected token '{}'\n",
                s->filename, TOKEN.line, TOKEN.col, TOKEN.as_str());
 
+    std::string ident(TOKEN.col - 1 + 4, ' ');
+    op::printf("    {}\n{}^\n", s->lines[TOKEN.line - 1], ident);
+
     int n = sizeof(yyTokenName) / sizeof(yyTokenName[0]);
     for (int i = 0; i < n; ++i) {
         int a = yy_find_shift_action(yypParser, (YYCODETYPE) i);
@@ -50,15 +48,13 @@ std::string tok_val(Token tok);
 }
 
 %stack_overflow {
-    op::print("Parser stack overflow.");
-    std::exit(1);
+    throw InternalCompilerError("parser stack overflow");
 }
 
 %token_type { Token }
 %token_destructor { tok_del($$); }
 %default_type { ast::Node* }
 %default_destructor { if ($$) delete $$; }
-
 %type expr { ast::Expr* }
 %type atom { ast::Expr* }
 %type name { ast::NameExpr* }
@@ -70,8 +66,9 @@ std::string tok_val(Token tok);
 
 
 
-program ::= onl compound_stmt onl. {
+program ::= onl compound_stmt(A) onl. {
     op::printf("Finished parse with {} error(s).\n", s->num_errors);
+    s->program.reset(A);
 }
 
 nl ::= NL.
@@ -86,10 +83,9 @@ unnest ::= . { s->nested_paren--; }
 open_paren ::= nest OPEN_PAREN.
 close_paren ::= unnest CLOSE_PAREN.
 
-
-stmt_list(A) ::= stmt(B). { A = new ast::CompoundStmt; A->add_stmt(B); }
-stmt_list(A) ::= stmt_list(B) SEMICOLON onl stmt(C). { A = B; A->add_stmt(C); }
-stmt_list(A) ::= stmt_list(B) nl stmt(C). { A = B; A->add_stmt(C); }
+stmt_list(A) ::= stmt(B). { A = new ast::CompoundStmt; A->append_stmt(B); }
+stmt_list(A) ::= stmt_list(B) SEMICOLON onl stmt(C). { A = B; A->append_stmt(C); }
+stmt_list(A) ::= stmt_list(B) nl stmt(C). { A = B; A->append_stmt(C); }
 compound_stmt(A) ::= OPEN_BRACE onl CLOSE_BRACE. { A = new ast::CompoundStmt; }
 compound_stmt(A) ::= OPEN_BRACE onl stmt_list(B) onl CLOSE_BRACE. { A = B; }
 compound_stmt(A) ::= OPEN_BRACE onl stmt_list(B) SEMICOLON onl CLOSE_BRACE. { A = B; }
