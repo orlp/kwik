@@ -10,14 +10,15 @@ void KwikParseFree(void*, void(*free_proc)(void*));
 
 
 namespace kwik {
-    void parse(std::shared_ptr<std::string> src, const std::string& filename) {
+    void parse(const Source& src) {
         auto parser = KwikParseAlloc(malloc);
         OP_SCOPE_EXIT { KwikParseFree(parser, free); };
 
-        kwik::ParseState state {src, filename};
-        auto lex = kwik::Lexer(src, filename);
+        auto state = ParseState{src};
+        auto lex = Lexer{state};
+
         while (true) {
-            auto token = lex.get_token(state);
+            auto token = lex.get_token();
             KwikParse(parser, token.type, token, &state);
             if (token.type == 0) break;
         }

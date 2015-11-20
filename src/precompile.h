@@ -1,4 +1,5 @@
 #include "libop/op.h"
+#include "utf8cpp/utf8.h"
 
 #include <cstdlib>
 #include <csignal>

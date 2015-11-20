@@ -2,7 +2,7 @@ builddir = build
 optflags = -O2
 dbgflags = -ggdb
 cflags = -std=c99 -Wall -pedantic
-cxxflags = -std=c++11 -Wall -pedantic
+cxxflags = -std=c++11 -Wall -pedantic -fmax-errors=1
 linkflags = 
 cxxlinkflags = 
 xtype =
@@ -36,6 +36,7 @@ build build/grammar.o: cxx src/grammar.cpp | src/precompile.h.gch
 build build/parser.o: cxx src/parser.cpp | src/precompile.h.gch
 build build/lexer.o: cxx src/lexer.cpp | src/precompile.h.gch
 build build/token.o: cxx src/token.cpp | src/precompile.h.gch
+build build/io.o: cxx src/io.cpp | src/precompile.h.gch
 build build/kwik.o: cxx src/kwik.cpp | src/precompile.h.gch
-build kwik: cxxlink build/kwik.o build/grammar.o build/lexer.o build/parser.o build/token.o
+build kwik: cxxlink build/kwik.o build/grammar.o build/lexer.o build/parser.o build/token.o build/io.o
 default kwik

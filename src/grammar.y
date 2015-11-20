@@ -30,13 +30,8 @@ std::string tok_val(Token tok);
 }
 
 %syntax_error {
-    s->num_errors += 1;
-
-    op::printf("{}:{}:{}: syntax error: unexpected token '{}'\n",
-               s->filename, TOKEN.line, TOKEN.col, TOKEN.as_str());
-
-    std::string ident(TOKEN.col - 1 + 4, ' ');
-    op::printf("    {}\n{}^\n", s->lines[TOKEN.line - 1], ident);
+    s->error_with_context(op::format("syntax error: unexpected token '{}'", TOKEN.as_str()),
+                          TOKEN.line, TOKEN.col);
 
     int n = sizeof(yyTokenName) / sizeof(yyTokenName[0]);
     for (int i = 0; i < n; ++i) {

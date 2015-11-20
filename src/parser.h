@@ -3,33 +3,33 @@
 
 #include "token.h"
 #include "ast.h"
+#include "io.h"
+
+
 
 namespace kwik {
     struct ParseState {
-        ParseState(std::shared_ptr<std::string> src, std::string filename)
-        : src(src), filename(filename), num_errors(0), nested_paren(0) {
-            const char* it = src->data();
-            const char* line_start = it;
-            while (*it) {
-                if (*it == '\n') {
-                    lines.emplace_back(line_start, it);
-                    line_start = it + 1;
-                }
-                ++it;
-            }
+        ParseState(const Source& src)
+            : src(src), num_errors(0), nested_paren(0) { }
 
-            if (it != line_start) lines.emplace_back(line_start, it);
+        void error_with_context(const std::string& msg, int line, int col) {
+            num_errors += 1;
+
+            auto errmsg = op::format("{}:{}:{}: {}\n",
+                                     src.name, line, col, msg);
+            std::string indent(col - 1 + 4, ' ');
+            errmsg += op::format("    {}\n{}^\n", src.lines[line - 1], indent);
+
+            op::fprint(std::cout, errmsg);
         }
 
-        std::shared_ptr<std::string> src;
-        std::vector<std::string> lines;
-        std::string filename;
+        const Source& src;
         int num_errors;
         int nested_paren;
         std::unique_ptr<ast::CompoundStmt> program;
     };
 
-    void parse(std::shared_ptr<std::string> src, const std::string& filename);
+    void parse(const Source& src);
 }
 
 

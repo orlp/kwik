@@ -10,6 +10,7 @@
 #include "grammar.h"
 #include "parser.h"
 
+
 static const std::unordered_map<std::string, int> keywords = {
     {"let", KWIK_TOK_LET}
 };
@@ -22,8 +23,8 @@ static const std::set<std::string> int_suffixes_set = {
 };
 
 
-static std::array<int, 128> make_simple_tok_table() {
-    std::array<int, 128> simple_tok_table = {{0}};
+static std::array<unsigned char, 128> make_simple_tok_table() {
+    std::array<unsigned char, 128> simple_tok_table = {{0}};
     simple_tok_table['{'] = KWIK_TOK_OPEN_BRACE;
     simple_tok_table['}'] = KWIK_TOK_CLOSE_BRACE;
     simple_tok_table['('] = KWIK_TOK_OPEN_PAREN;
@@ -34,7 +35,7 @@ static std::array<int, 128> make_simple_tok_table() {
     return simple_tok_table;
 }
     
-static std::array<int, 128> simple_tok_table = make_simple_tok_table();
+static auto simple_tok_table = make_simple_tok_table();
 
 enum class LexerJumpIndex : unsigned char {
     ERROR = 0,
@@ -68,29 +69,23 @@ static std::array<LexerJumpIndex, 128> make_jump_table() {
     return jump_table;
 }
 
-static std::array<LexerJumpIndex, 128> jump_table = make_jump_table();
+static auto jump_table = make_jump_table();
 
 
 
 
 namespace kwik {
-    Lexer::Lexer(std::shared_ptr<std::string> src, const std::string& filename)
-    : src(src), filename(filename), line(1), col(1) {
-        this->src->push_back(0);
-        this->src->push_back(0);
-        this->src->push_back(0);
-        this->src->push_back(0);
-        it = src->data();
-        end = src->data() + src->size();
-    }
+    Lexer::Lexer(ParseState& s)
+        : s(s) , line(1), col(1), it(s.src.code.data()) { }
 
-    Token Lexer::lex_num(ParseState& s) {
+    Token Lexer::lex_num() {
         bool base = false;
         bool floating = false;
         int startcol = col;
 
         std::string value;
-        if (*it == '0' && (it[1] == 'b' || it[1] == 'o' || it[1] == 'x')) {
+        auto n = *std::next(it);
+        if (*it == '0' && (n == 'b' || n == 'o' || n == 'x')) {
             base = true;
             value += *it++;
             value += *it++;
@@ -115,17 +110,17 @@ namespace kwik {
         if (suffix.size()) {
             if (floating && suffix != "f32" && suffix != "f64") {
                 throw SyntaxError("invalid float suffix '" + suffix + "'",
-                                  filename, line, suffix_col);
+                                  s.src.name, line, suffix_col);
             } else if (!floating && !int_suffixes_set.count(suffix)) {
                 throw SyntaxError("invalid integer suffix '" + suffix + "'",
-                                  filename, line, suffix_col);
+                                  s.src.name, line, suffix_col);
             }
         }
 
         return {KWIK_TOK_NUM, line, startcol, value + suffix};
     }
 
-    Token Lexer::lex_ident(ParseState& s) {
+    Token Lexer::lex_ident() {
         int startcol = col++;
         std::string ident(1, *it++);
         while (std::isalnum(*it) || *it == '_') { ident += *it++; ++col; }
@@ -135,13 +130,13 @@ namespace kwik {
         return {it->second, line, startcol};
     }
 
-    Token Lexer::get_token(ParseState& s) {
+    Token Lexer::get_token() {
         while (true) {
             int startcol = col;
-            int c = *it;
+            uint32_t c = *it;
             if (c < 0 || c >= 128) {
                 throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
-                                        filename, line, startcol);
+                                        s.src.name, line, startcol);
             }
 
             // For performance it's important that the order here matches the order of
@@ -151,7 +146,7 @@ namespace kwik {
             case I::ERROR:
                 ++it; ++col;
                 throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
-                                        filename, line, startcol);
+                                        s.src.name, line, startcol);
             case I::NULL_EOF:
                 ++it; ++col;
                 return {0, line, startcol};
@@ -163,19 +158,20 @@ namespace kwik {
                 if (s.nested_paren == 0) return {KWIK_TOK_NL, line-1, startcol};
                 break;
             case I::COMMENT:
-                while (*it && *it != '\n') { it++; col++; }
+                do { ++it; ++col; } while (*it && *it != '\n');
                 break;
             case I::DIGIT:
-                return lex_num(s);
+                return lex_num();
             case I::ALPHA:
-                 return lex_ident(s);
+                return lex_ident();
             case I::DOT:
-                if (std::isdigit(it[0])) {
-                    return lex_num(s);
+                if (std::isdigit(*std::next(it))) {
+                    return lex_num();
                 }
                 
+                ++it; ++col;
                 throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
-                                        filename, line, startcol);
+                                        s.src.name, line, startcol);
             case I::SIMPLE_TOK:
                 ++it; ++col;
                 return {simple_tok_table[c], line, startcol};

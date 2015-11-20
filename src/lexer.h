@@ -5,24 +5,22 @@
 #include <memory>
 
 #include "parser.h"
+#include "utf8cpp/utf8.h"
 
 
 namespace kwik {
     class Lexer {
     public:
-        Lexer(std::shared_ptr<std::string> src, const std::string& filename);
-        Token get_token(ParseState& s);
+        Lexer(ParseState& s);
+        Token get_token();
 
     private:
-        Token lex_num(ParseState& s);
-        Token lex_ident(ParseState& s);
+        Token lex_num();
+        Token lex_ident();
 
-        std::shared_ptr<std::string> src;
-        std::string filename;
-        int line;
-        int col;
-        const char* it;
-        const char* end;
+        ParseState& s;
+        int line, col;
+        utf8::unchecked::iterator<const char*> it;
     };
 }
 
