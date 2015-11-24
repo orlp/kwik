@@ -76,7 +76,19 @@ static auto jump_table = make_jump_table();
 
 namespace kwik {
     Lexer::Lexer(ParseState& s)
-        : s(s) , line(1), col(1), it(s.src.code.data()) { }
+        : s(s), line(1), col(1), it(s.src.code.data()) { }
+
+    void Lexer::throw_unexpected_char(uint32_t c, int line, int col) {
+        std::string errmsg = "unexpected character: '";
+        utf8::append(c, std::back_inserter(errmsg));
+        errmsg += "'";
+        throw SyntaxError(errmsg, s.src.name, line, col, s.src.lines[line - 1]);
+    }
+
+    uint32_t Lexer::assert_ascii(uint32_t c, int line, int col) {
+        if (c >= 128) throw_unexpected_char(c, line, col);
+        return c;
+    }
 
     Token Lexer::lex_num() {
         bool base = false;
@@ -92,7 +104,7 @@ namespace kwik {
             col += 2;
         }
 
-        while (std::isdigit(*it)) { value += *it++; ++col; }
+        while (std::isdigit(assert_ascii(*it, line, col))) { value += *it++; ++col; }
 
         if (!base) {
             if (*it == '.') {
@@ -100,20 +112,20 @@ namespace kwik {
                 value += *it++; ++col;
             }
             
-            while (std::isdigit(*it)) { value += *it++; ++col; }
+            while (std::isdigit(assert_ascii(*it, line, col))) { value += *it++; ++col; }
         }
 
         std::string suffix;
         size_t suffix_col = col;
-        while (std::isalnum(*it)) { suffix += *it++; ++col; }
+        while (std::isalnum(assert_ascii(*it, line, col))) { suffix += *it++; ++col; }
 
         if (suffix.size()) {
             if (floating && suffix != "f32" && suffix != "f64") {
                 throw SyntaxError("invalid float suffix '" + suffix + "'",
-                                  s.src.name, line, suffix_col);
+                                  s.src.name, line, suffix_col, s.src.lines[line - 1]);
             } else if (!floating && !int_suffixes_set.count(suffix)) {
                 throw SyntaxError("invalid integer suffix '" + suffix + "'",
-                                  s.src.name, line, suffix_col);
+                                  s.src.name, line, suffix_col, s.src.lines[line - 1]);
             }
         }
 
@@ -123,7 +135,7 @@ namespace kwik {
     Token Lexer::lex_ident() {
         int startcol = col++;
         std::string ident(1, *it++);
-        while (std::isalnum(*it) || *it == '_') { ident += *it++; ++col; }
+        while (std::isalnum(assert_ascii(*it, line, col)) || *it == '_') { ident += *it++; ++col; }
 
         auto it = keywords.find(ident);
         if (it == keywords.end()) return {KWIK_TOK_NAME, line, startcol, ident};
@@ -133,11 +145,7 @@ namespace kwik {
     Token Lexer::get_token() {
         while (true) {
             int startcol = col;
-            uint32_t c = *it;
-            if (c < 0 || c >= 128) {
-                throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
-                                        s.src.name, line, startcol);
-            }
+            uint32_t c = assert_ascii(*it, line, startcol);
 
             // For performance it's important that the order here matches the order of
             // the jump table defined above.
@@ -145,8 +153,7 @@ namespace kwik {
             switch (jump_table[c]) {
             case I::ERROR:
                 ++it; ++col;
-                throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
-                                        s.src.name, line, startcol);
+                throw_unexpected_char(c, line, startcol);
             case I::NULL_EOF:
                 ++it; ++col;
                 return {0, line, startcol};
@@ -165,13 +172,12 @@ namespace kwik {
             case I::ALPHA:
                 return lex_ident();
             case I::DOT:
-                if (std::isdigit(*std::next(it))) {
+                if (std::isdigit(assert_ascii(*std::next(it), line, col + 1))) {
                     return lex_num();
                 }
                 
                 ++it; ++col;
-                throw kwik::SyntaxError(op::format("unexpected character: '{}'", c),
-                                        s.src.name, line, startcol);
+                throw_unexpected_char(c, line, startcol);
             case I::SIMPLE_TOK:
                 ++it; ++col;
                 return {simple_tok_table[c], line, startcol};

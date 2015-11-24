@@ -15,6 +15,8 @@ namespace kwik {
         Token get_token();
 
     private:
+        void throw_unexpected_char(uint32_t c, int line, int col);
+        uint32_t assert_ascii(uint32_t c, int line, int col);
         Token lex_num();
         Token lex_ident();
 

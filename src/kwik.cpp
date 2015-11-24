@@ -23,13 +23,13 @@ int main(int argc, char** argv) {
         parse(src);
         return 0;
     } catch (const CompilationError& e) {
-        op::printf("error: {}:{}:{} {}\n", e.name, e.line, e.col, e.what());
+        op::print(e.what());
     } catch (const FilesystemError& e) {
         op::printf("error: {}: {}\n", args[1], e.what());
-    } catch (const InternalCompilerError& e) {
-        op::printf("internal compiler error: {}: {}\n", args[1], e.what());
-    } catch (const StopCompilation& e) {
     }
+    // } catch (const InternalCompilerError& e) {
+    //     op::printf("internal compiler error: {}: {}\n", args[1], e.what());
+    // }
 
     return 1;
 }

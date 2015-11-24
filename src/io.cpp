@@ -11,17 +11,6 @@
 
 
 namespace kwik {
-    static void error_with_context(std::string msg, std::string name,
-                                   int line, int col,
-                                   const std::vector<std::string>& lines) {
-        assert(line > 0 && size_t(line) <= lines.size());
-        auto errmsg = op::format("{}:{}:{}: {}\n", name, line, col, msg);
-        std::string indent(col - 1 + 4, ' ');
-        errmsg += op::format("    {}\n{}^\n", lines[line - 1], indent);
-        op::fprint(std::cout, errmsg);
-    }
-
-
     static std::string read_full_stream(std::FILE* file) {
         std::string result;
         std::array<char, 4096> buf;
@@ -68,33 +57,44 @@ namespace kwik {
         auto line_start = code.begin();
         int line = 1;
         int col = 1;
-        while (it != end) {
-            auto c = *it++;
-            // Don't allow null bytes in source.
-            if (c == 0) {
-                lines.emplace_back(line_start, code.end());
-                error_with_context("syntax error: null character encountered",
-                                   name, line, col, lines);
-                throw StopCompilation();
-            }
+        const char* utf8_error = nullptr;
+        try {
+            while (it != end) {
+                auto c = *it++;
+                // Don't allow null bytes in source.
+                if (c == 0) {
+                    throw EncodingError("null character encountered",
+                                        name, line, col,
+                                        std::string(line_start, code.end()));
+                }
 
-            // Translate \r and \r\n to \n.
-            if (c == '\r' || c == '\n') {
-                lines.emplace_back(line_start, code.end());
-                utf8::append('\n', code_append);
-                line_start = code.end();
-                if (c == '\r' && it != end && *it == '\n') ++it;
-                line++; col = 1;
-            } else {
-                utf8::append(c, code_append);
-                col++;
+                // Translate \r and \r\n to \n.
+                if (c == '\r' || c == '\n') {
+                    lines.emplace_back(line_start, code.end());
+                    utf8::append('\n', code_append);
+                    line_start = code.end();
+                    if (c == '\r' && it != end && *it == '\n') ++it;
+                    line++; col = 1;
+                } else {
+                    utf8::append(c, code_append);
+                    col++;
+                }
             }
+        } catch (const utf8::not_enough_room& e) {
+            utf8_error = "incomplete UTF-8 code point";
+        } catch (const utf8::invalid_code_point& e) {
+            utf8_error = "invalid code point";
+        } catch (const utf8::invalid_utf8& e) {
+            utf8_error = "invalid UTF-8";
+        }
+
+        if (utf8_error) {
+            throw EncodingError(utf8_error, name, line, col,
+                                std::string(line_start, code.end()));
         }
 
         // Append final line.
-        if (line_start != code.end()) {
-            lines.emplace_back(line_start, code.end());
-        }
+        lines.emplace_back(line_start, code.end());
 
         // Append null bytes for lexer.
         for (int i = 0; i < Source::NULL_BYTES_APPENDED; ++i) code.push_back(0);
