@@ -18,6 +18,7 @@ namespace kwik {
         case KWIK_TOK_SEMICOLON: return ";";
         case KWIK_TOK_EQUALS: return "=";
         case KWIK_TOK_LET: return "let";
+        case KWIK_TOK_RETURN: return "return";
         case KWIK_TOK_NUM:
         case KWIK_TOK_NAME:
              return *val;

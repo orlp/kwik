@@ -9,14 +9,18 @@
 #include "exception.h"
 #include "grammar.h"
 #include "parser.h"
+#include "asciitype.h"
+
+
+
 
 
 static const std::unordered_map<std::string, int> keywords = {
-    {"let", KWIK_TOK_LET}
+    {"let", KWIK_TOK_LET},
+    {"return", KWIK_TOK_RETURN}
 };
 
 static const std::set<std::string> int_suffixes_set = {
-    "f32", "f64",
     "i8", "i16", "i32", "i64",
     "u8", "u16", "u32", "u64",
     "i"
@@ -25,13 +29,13 @@ static const std::set<std::string> int_suffixes_set = {
 
 static std::array<unsigned char, 128> make_simple_tok_table() {
     std::array<unsigned char, 128> simple_tok_table = {{0}};
-    simple_tok_table['{'] = KWIK_TOK_OPEN_BRACE;
-    simple_tok_table['}'] = KWIK_TOK_CLOSE_BRACE;
-    simple_tok_table['('] = KWIK_TOK_OPEN_PAREN;
-    simple_tok_table[')'] = KWIK_TOK_CLOSE_PAREN;
-    simple_tok_table[':'] = KWIK_TOK_COLON;
-    simple_tok_table[';'] = KWIK_TOK_SEMICOLON;
-    simple_tok_table['='] = KWIK_TOK_EQUALS;
+    simple_tok_table[U'{'] = KWIK_TOK_OPEN_BRACE;
+    simple_tok_table[U'}'] = KWIK_TOK_CLOSE_BRACE;
+    simple_tok_table[U'('] = KWIK_TOK_OPEN_PAREN;
+    simple_tok_table[U')'] = KWIK_TOK_CLOSE_PAREN;
+    simple_tok_table[U':'] = KWIK_TOK_COLON;
+    simple_tok_table[U';'] = KWIK_TOK_SEMICOLON;
+    simple_tok_table[U'='] = KWIK_TOK_EQUALS;
     return simple_tok_table;
 }
     
@@ -60,12 +64,12 @@ static std::array<LexerJumpIndex, 128> make_jump_table() {
         else jump_table[c] = I::ERROR;
     }
 
-    jump_table['_'] = I::ALPHA;
+    jump_table[U'_'] = I::ALPHA;
     jump_table[0] = I::NULL_EOF;
-    jump_table[' '] = I::SPACE;
-    jump_table['\n'] = I::NEWLINE;
-    jump_table['#'] = I::COMMENT;
-    jump_table['.'] = I::DOT;
+    jump_table[U' '] = I::SPACE;
+    jump_table[U'\n'] = I::NEWLINE;
+    jump_table[U'#'] = I::COMMENT;
+    jump_table[U'.'] = I::DOT;
     return jump_table;
 }
 
@@ -85,57 +89,73 @@ namespace kwik {
         throw SyntaxError(errmsg, s.src.name, line, col, s.src.lines[line - 1]);
     }
 
-    uint32_t Lexer::assert_ascii(uint32_t c, int line, int col) {
-        if (c >= 128) throw_unexpected_char(c, line, col);
-        return c;
-    }
-
     Token Lexer::lex_num() {
-        bool base = false;
+        int base = 10;
         bool floating = false;
         int startcol = col;
 
-        std::string value;
         auto n = *std::next(it);
-        if (*it == '0' && (n == 'b' || n == 'o' || n == 'x')) {
-            base = true;
-            value += *it++;
-            value += *it++;
+        if (*it == U'0' && (n == U'b' || n == U'o' || n == U'x')) {
+            std::advance(it, 2);
             col += 2;
+            switch (n) {
+            case U'b': base =  2; break;
+            case U'o': base =  8; break;
+            case U'x': base = 16; break;
+            }
         }
 
-        while (std::isdigit(assert_ascii(*it, line, col))) { value += *it++; ++col; }
+        std::string value;
+        if (base == 10) {
+            while (aisdigit(*it)) { value += *it++; ++col; }
+        } else if (base == 2) {
+            while (aisbdigit(*it)) { value += *it++; ++col; }
+        } else if (base == 8) {
+            while (aisodigit(*it)) { value += *it++; ++col; }
+        } else if (base == 16) {
+            while (aisxdigit(*it)) { value += *it++; ++col; }
+        }
 
-        if (!base) {
-            if (*it == '.') {
+        if (base == 10) {
+            if (*it == U'.') {
                 floating = true;
                 value += *it++; ++col;
             }
             
-            while (std::isdigit(assert_ascii(*it, line, col))) { value += *it++; ++col; }
+            while (aisdigit(*it)) { value += *it++; ++col; }
         }
 
         std::string suffix;
         size_t suffix_col = col;
-        while (std::isalnum(assert_ascii(*it, line, col))) { suffix += *it++; ++col; }
+        while (aisalnum(*it)) { suffix += *it++; ++col; }
 
         if (suffix.size()) {
-            if (floating && suffix != "f32" && suffix != "f64") {
+            if (suffix == "f32" || suffix == "f64") {
+                if (base != 10) {
+                    throw SyntaxError("invalid base for suffix '" + suffix + "'",
+                                      s.src.name, line, startcol, s.src.lines[line - 1]);
+                }
+                floating = true;
+            } else if (floating) {
                 throw SyntaxError("invalid float suffix '" + suffix + "'",
                                   s.src.name, line, suffix_col, s.src.lines[line - 1]);
-            } else if (!floating && !int_suffixes_set.count(suffix)) {
+            } else if (!int_suffixes_set.count(suffix)) {
                 throw SyntaxError("invalid integer suffix '" + suffix + "'",
                                   s.src.name, line, suffix_col, s.src.lines[line - 1]);
             }
         }
 
-        return {KWIK_TOK_NUM, line, startcol, value + suffix};
+        Token tok = {KWIK_TOK_NUM, line, startcol, value};
+        tok.number.base = base;
+        tok.number.floating = floating;
+        tok.number.suffix = suffix.size() ? new std::string(suffix) : nullptr;
+        return tok;
     }
 
     Token Lexer::lex_ident() {
         int startcol = col++;
         std::string ident(1, *it++);
-        while (std::isalnum(assert_ascii(*it, line, col)) || *it == '_') { ident += *it++; ++col; }
+        while (aisalnum(*it) || *it == U'_') { ident += *it++; ++col; }
 
         auto it = keywords.find(ident);
         if (it == keywords.end()) return {KWIK_TOK_NAME, line, startcol, ident};
@@ -145,7 +165,8 @@ namespace kwik {
     Token Lexer::get_token() {
         while (true) {
             int startcol = col;
-            uint32_t c = assert_ascii(*it, line, startcol);
+            uint32_t c = *it;
+            if (c >= 128) throw_unexpected_char(c, line, startcol);
 
             // For performance it's important that the order here matches the order of
             // the jump table defined above.
@@ -165,17 +186,14 @@ namespace kwik {
                 if (s.nested_paren == 0) return {KWIK_TOK_NL, line-1, startcol};
                 break;
             case I::COMMENT:
-                do { ++it; ++col; } while (*it && *it != '\n');
+                do { ++it; ++col; } while (*it && *it != U'\n');
                 break;
             case I::DIGIT:
                 return lex_num();
             case I::ALPHA:
                 return lex_ident();
             case I::DOT:
-                if (std::isdigit(assert_ascii(*std::next(it), line, col + 1))) {
-                    return lex_num();
-                }
-                
+                if (aisdigit(*std::next(it))) return lex_num();
                 ++it; ++col;
                 throw_unexpected_char(c, line, startcol);
             case I::SIMPLE_TOK:

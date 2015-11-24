@@ -20,7 +20,11 @@ namespace kwik {
 
         struct NumberExpr : Expr {
             std::string val;
-            NumberExpr(const std::string& val) : val(val) { }
+            int base;
+            bool floating; 
+            std::string suffix;
+            NumberExpr(const std::string& val, int base, bool floating, const std::string& suffix)
+                : val(val), base(base), floating(floating), suffix(suffix) { }
             virtual std::string type_name() { return "number"; }
         };
 
@@ -43,6 +47,12 @@ namespace kwik {
             LetStmt(const std::string& name, const std::string& type, Expr* expr)
             : name(name), type(type), expr(expr) { }
             virtual std::string type_name() { return "let_stmt"; }
+        };
+        
+        struct ReturnStmt : Stmt {
+            std::unique_ptr<Expr> expr;
+            ReturnStmt(Expr* expr) : expr(expr) { }
+            virtual std::string type_name() { return "return_stmt"; }
         };
     }
 }

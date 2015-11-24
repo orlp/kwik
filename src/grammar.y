@@ -13,20 +13,15 @@
 
 using namespace kwik;
 
-void tok_del(Token tok);
-std::string tok_val(Token tok);
+template<class T> static T get(T* p);
 }
 
 %code {
-    void tok_del(Token tok) {
-        if (tok.val) delete tok.val;
-    }
-
-    std::string tok_val(Token tok) {
-       if (!tok.val) return "";
-       std::string copy = *tok.val;
-       delete tok.val;
-       return copy;
+    template<class T>
+    static T get(T* p) {
+        if (!p) return T();
+        T copy = *p;
+        return copy;
     }
 }
 
@@ -49,7 +44,7 @@ std::string tok_val(Token tok);
 }
 
 %token_type { Token }
-%token_destructor { tok_del($$); }
+%token_destructor { $$.del(); }
 %default_type { ast::Node* }
 %default_destructor { if ($$) delete $$; }
 %type expr { ast::Expr* }
@@ -58,6 +53,7 @@ std::string tok_val(Token tok);
 %type number { ast::NumberExpr* }
 %type stmt { ast::Stmt* }
 %type let_stmt { ast::LetStmt* }
+%type return_stmt { ast::ReturnStmt* }
 %type stmt_list { ast::CompoundStmt* }
 %type compound_stmt { ast::CompoundStmt* }
 
@@ -93,12 +89,15 @@ compound_stmt(A) ::= OPEN_BRACE onl stmt_list(B) SEMICOLON onl CLOSE_BRACE. { A 
 
 stmt(A) ::= compound_stmt(B). { A = B; }
 stmt(A) ::= let_stmt(B). { A = B; }
+stmt(A) ::= return_stmt(B). { A = B; }
 stmt(A) ::= expr(B). { A = B; }
 
 let_stmt(A) ::= LET onl NAME(B) onl EQUALS onl expr(D).
-    { A = new ast::LetStmt(tok_val(B), "", D); }
+    { A = new ast::LetStmt(get(B.val), "", D); B.del(); }
 let_stmt(A) ::= LET onl NAME(B) onl COLON onl NAME(C) onl EQUALS onl expr(D).
-    { A = new ast::LetStmt(tok_val(B), tok_val(C), D); }
+    { A = new ast::LetStmt(get(B.val), get(C.val), D); B.del(); C.del(); }
+
+return_stmt(A) ::= RETURN expr(B). { A = new ast::ReturnStmt(B); }
 
 expr(A) ::= open_paren expr(B) close_paren. { A = B; }
 expr(A) ::= atom(B). { A = B; }
@@ -106,5 +105,8 @@ expr(A) ::= atom(B). { A = B; }
 atom(A) ::= number(B). { A = B; }
 atom(A) ::= name(B). { A = B; }
      
-name(A) ::= NAME(B). { A = new ast::NameExpr(tok_val(B)); }
-number(A) ::= NUM(B). { A = new ast::NumberExpr(tok_val(B)); }
+name(A) ::= NAME(B). { A = new ast::NameExpr(get(B.val)); B.del(); }
+number(A) ::= NUM(B). {
+    A = new ast::NumberExpr(get(B.val), B.number.base, B.number.floating, get(B.number.suffix));
+    B.del();
+}
