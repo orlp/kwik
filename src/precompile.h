@@ -1,6 +1,7 @@
 #include "libop/op.h"
 #include "utf8cpp/utf8.h"
 
+#include <stddef.h>
 #include <cstdlib>
 #include <csignal>
 #include <csetjmp>

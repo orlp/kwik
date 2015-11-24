@@ -1,6 +1,7 @@
 %name KwikParse
 %token_prefix KWIK_TOK_
 %extra_argument { ParseState* s }
+%stack_size 0
 
 %include {
 #include "precompile.h"
@@ -30,8 +31,9 @@ std::string tok_val(Token tok);
 }
 
 %syntax_error {
-    s->error_with_context(op::format("syntax error: unexpected token '{}'", TOKEN.as_str()),
-                          TOKEN.line, TOKEN.col);
+    s->error_with_context(
+        op::format("syntax error: unexpected token '{}'", TOKEN.as_str()), 
+                   TOKEN.line, TOKEN.col);
 
     int n = sizeof(yyTokenName) / sizeof(yyTokenName[0]);
     for (int i = 0; i < n; ++i) {
@@ -78,10 +80,14 @@ unnest ::= . { s->nested_paren--; }
 open_paren ::= nest OPEN_PAREN.
 close_paren ::= unnest CLOSE_PAREN.
 
-stmt_list(A) ::= stmt(B). { A = new ast::CompoundStmt; A->append_stmt(B); }
-stmt_list(A) ::= stmt_list(B) SEMICOLON onl stmt(C). { A = B; A->append_stmt(C); }
-stmt_list(A) ::= stmt_list(B) nl stmt(C). { A = B; A->append_stmt(C); }
-compound_stmt(A) ::= OPEN_BRACE onl CLOSE_BRACE. { A = new ast::CompoundStmt; }
+stmt_list(A) ::= stmt(B).
+    { A = new ast::CompoundStmt; A->append_stmt(B); }
+stmt_list(A) ::= stmt_list(B) SEMICOLON onl stmt(C).
+    { A = B; A->append_stmt(C); }
+stmt_list(A) ::= stmt_list(B) nl stmt(C).
+    { A = B; A->append_stmt(C); }
+compound_stmt(A) ::= OPEN_BRACE onl CLOSE_BRACE.
+    { A = new ast::CompoundStmt; }
 compound_stmt(A) ::= OPEN_BRACE onl stmt_list(B) onl CLOSE_BRACE. { A = B; }
 compound_stmt(A) ::= OPEN_BRACE onl stmt_list(B) SEMICOLON onl CLOSE_BRACE. { A = B; }
 

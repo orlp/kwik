@@ -11,7 +11,16 @@
      return;
 --- lempar.c	2015-11-18 05:20:27.763029180 +0100
 +++ lempar_patched.c	2015-11-18 05:27:56.007048842 +0100
-@@ -361,6 +361,7 @@
+@@ -280,7 +280,7 @@
+   yyStackEntry *pNew;
+ 
+   newSize = p->yystksz*2 + 100;
+-  pNew = realloc(p->yystack, newSize*sizeof(pNew[0]));
++  pNew = (yyStackEntry*) realloc(p->yystack, newSize*sizeof(pNew[0]));
+   if( pNew ){
+     p->yystack = pNew;
+     p->yystksz = newSize;
+@@ -361,6 +362,7 @@
  /********* End destructor definitions *****************************************/
      default:  break;   /* If no destructor action specified: do nothing */
    }
@@ -19,7 +28,7 @@
  }
  
  /*
-@@ -640,7 +641,7 @@
+@@ -640,7 +642,7 @@
  %%
  /********** End reduce actions ************************************************/
    };
