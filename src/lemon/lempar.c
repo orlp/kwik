@@ -1,3 +1,4 @@
+%%
 /*
 ** 2000-05-29
 **
@@ -22,10 +23,9 @@
 ** The following is the concatenation of all %include directives from the
 ** input grammar file:
 */
-#include <stdio.h>
 /************ Begin %include sections from the grammar ************************/
-%%
 /**************** End of %include directives **********************************/
+#include <stdio.h>
 /* These constants specify the various numeric values for terminal symbols
 ** in a format understandable to "makeheaders".  This section is blank unless
 ** "lemon" is run with the "-m" command-line option.

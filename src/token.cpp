@@ -21,7 +21,7 @@ namespace kwik {
         case KWIK_TOK_RETURN: return "return";
         case KWIK_TOK_NUM:
         case KWIK_TOK_NAME:
-             return *val;
+             return val;
         }
 
         throw InternalCompilerError(op::format("unknown token type {}", type));

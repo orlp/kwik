@@ -1,10 +1,11 @@
 #include "precompile.h"
 
+#include "token.h"
 #include "parser.h"
 #include "lexer.h"
 
 void* KwikParseAlloc(void* (*alloc_proc)(size_t));
-void KwikParse(void* state, int token_id, kwik::Token token_data, kwik::ParseState* s);
+void KwikParse(void* state, int token_id, kwik::Token* token_data, kwik::ParseState* s);
 void KwikParseFree(void*, void(*free_proc)(void*));
 
 
@@ -20,7 +21,7 @@ namespace kwik {
         while (true) {
             try {
                 auto token = lex.get_token();
-                KwikParse(parser, token.type, token, &state);
+                KwikParse(parser, token.type, new Token(token), &state);
                 if (token.type == 0) break;
             } catch (const CompilationError& e) {
                 state.errors.emplace_back(e.clone());

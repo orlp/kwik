@@ -1,6 +1,5 @@
 %name KwikParse
 %token_prefix KWIK_TOK_
-%extra_argument { ParseState* s }
 %stack_size 0
 
 %include {
@@ -12,23 +11,15 @@
 #include "ast.h"
 
 using namespace kwik;
-
-template<class T> static T get(T* p);
 }
 
 %code {
-    template<class T>
-    static T get(T* p) {
-        if (!p) return T();
-        T copy = *p;
-        return copy;
-    }
 }
 
 %syntax_error {
     s->errors.emplace_back(new SyntaxError(
-        op::format("unexpected token '{}'", TOKEN.as_str()), 
-        s->src, TOKEN.line, TOKEN.col));
+        op::format("unexpected token '{}'", TOKEN->as_str()), 
+        s->src, TOKEN->line, TOKEN->col));
     /* int n = sizeof(yyTokenName) / sizeof(yyTokenName[0]); */
     /* for (int i = 0; i < n; ++i) { */
     /*     int a = yy_find_shift_action(yypParser, (YYCODETYPE) i); */
@@ -42,8 +33,9 @@ template<class T> static T get(T* p);
     throw InternalCompilerError("parser stack overflow");
 }
 
-%token_type { Token }
-%token_destructor { $$.del(); }
+%extra_argument { ParseState* s }
+%token_type { Token* }
+%token_destructor { delete $$; }
 %default_type { ast::Node* }
 %default_destructor { if ($$) delete $$; }
 %type expr { ast::Expr* }
@@ -91,9 +83,11 @@ stmt(A) ::= return_stmt(B). { A = B; }
 stmt(A) ::= expr(B). { A = B; }
 
 let_stmt(A) ::= LET onl NAME(B) onl EQUALS onl expr(D).
-    { A = new ast::LetStmt(get(B.val), "", D); B.del(); }
-let_stmt(A) ::= LET onl NAME(B) onl COLON onl NAME(C) onl EQUALS onl expr(D).
-    { A = new ast::LetStmt(get(B.val), get(C.val), D); B.del(); C.del(); }
+    { A = new ast::LetStmt(B->val, "", D); delete B; }
+let_stmt(A) ::= LET onl NAME(B) onl COLON onl NAME(C) onl EQUALS onl expr(D). {
+    A = new ast::LetStmt(B->val, C->val, D);
+    delete B; delete C;
+}
 
 return_stmt(A) ::= RETURN expr(B). { A = new ast::ReturnStmt(B); }
 
@@ -103,8 +97,8 @@ expr(A) ::= atom(B). { A = B; }
 atom(A) ::= number(B). { A = B; }
 atom(A) ::= name(B). { A = B; }
      
-name(A) ::= NAME(B). { A = new ast::NameExpr(get(B.val)); B.del(); }
+name(A) ::= NAME(B). { A = new ast::NameExpr(B->val); delete B; }
 number(A) ::= NUM(B). {
-    A = new ast::NumberExpr(get(B.val), B.number.base, B.number.floating, get(B.number.suffix));
-    B.del();
+    A = new ast::NumberExpr(B->val, B->number.base, B->number.floating, B->number.suffix_len);
+    delete B;
 }

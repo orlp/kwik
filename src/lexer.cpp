@@ -142,10 +142,10 @@ namespace kwik {
             }
         }
 
-        Token tok = {KWIK_TOK_NUM, line, startcol, value};
+        Token tok(KWIK_TOK_NUM, line, startcol, value + suffix);
         tok.number.base = base;
         tok.number.floating = floating;
-        tok.number.suffix = suffix.size() ? new std::string(suffix) : nullptr;
+        tok.number.suffix_len = suffix.size();
         return tok;
     }
 

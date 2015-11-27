@@ -33,7 +33,7 @@ build build/lemon.o: c src/lemon/lemon.c
     # -pedantic generates warnings with lemon.
     cflags = -std=c99 -Wall
 build build/lemon: clink build/lemon.o
-build src/grammar.cpp src/grammar.h src/grammar.out: lemon src/grammar.y | build/lemon
+build src/grammar.cpp src/grammar.h src/grammar.out: lemon src/grammar.y | build/lemon src/lemon/lempar.c
 build build/grammar.o: cxx src/grammar.cpp | src/precompile.h.gch
 build build/parser.o: cxx src/parser.cpp | src/precompile.h.gch
 build build/lexer.o: cxx src/lexer.cpp | src/precompile.h.gch

@@ -1,7 +1,6 @@
 #ifndef KWIK_PARSER_STATE_H
 #define KWIK_PARSER_STATE_H
 
-#include "token.h"
 #include "ast.h"
 #include "io.h"
 #include "exception.h"

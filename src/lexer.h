@@ -3,9 +3,10 @@
 
 #include <string>
 #include <memory>
+#include "utf8cpp/utf8.h"
 
 #include "parser.h"
-#include "utf8cpp/utf8.h"
+#include "token.h"
 
 
 namespace kwik {
