@@ -86,7 +86,7 @@ namespace kwik {
         std::string errmsg = "unexpected character: '";
         utf8::append(c, std::back_inserter(errmsg));
         errmsg += "'";
-        throw SyntaxError(errmsg, s.src.name, line, col, s.src.lines[line - 1]);
+        throw SyntaxError(errmsg, s.src, line, col);
     }
 
     Token Lexer::lex_num() {
@@ -132,16 +132,13 @@ namespace kwik {
         if (suffix.size()) {
             if (suffix == "f32" || suffix == "f64") {
                 if (base != 10) {
-                    throw SyntaxError("invalid base for suffix '" + suffix + "'",
-                                      s.src.name, line, startcol, s.src.lines[line - 1]);
+                    throw SyntaxError("invalid base for suffix '" + suffix + "'", s.src, line, startcol);
                 }
                 floating = true;
             } else if (floating) {
-                throw SyntaxError("invalid float suffix '" + suffix + "'",
-                                  s.src.name, line, suffix_col, s.src.lines[line - 1]);
+                throw SyntaxError("invalid float suffix '" + suffix + "'", s.src, line, suffix_col);
             } else if (!int_suffixes_set.count(suffix)) {
-                throw SyntaxError("invalid integer suffix '" + suffix + "'",
-                                  s.src.name, line, suffix_col, s.src.lines[line - 1]);
+                throw SyntaxError("invalid integer suffix '" + suffix + "'", s.src, line, suffix_col);
             }
         }
 
@@ -166,7 +163,10 @@ namespace kwik {
         while (true) {
             int startcol = col;
             uint32_t c = *it;
-            if (c >= 128) throw_unexpected_char(c, line, startcol);
+            if (c >= 128) {
+                ++it; // Skip the bad character.
+                throw_unexpected_char(c, line, startcol);
+            }
 
             // For performance it's important that the order here matches the order of
             // the jump table defined above.

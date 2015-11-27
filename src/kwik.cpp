@@ -24,12 +24,13 @@ int main(int argc, char** argv) {
         return 0;
     } catch (const CompilationError& e) {
         op::print(e.what());
+    } catch (const EncodingError& e) {
+        op::print(e.what());
     } catch (const FilesystemError& e) {
         op::printf("error: {}: {}\n", args[1], e.what());
+    } catch (const InternalCompilerError& e) {
+        op::printf("internal compiler error: {}: {}\n", args[1], e.what());
     }
-    // } catch (const InternalCompilerError& e) {
-    //     op::printf("internal compiler error: {}: {}\n", args[1], e.what());
-    // }
 
     return 1;
 }

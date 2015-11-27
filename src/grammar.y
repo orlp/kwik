@@ -26,17 +26,16 @@ template<class T> static T get(T* p);
 }
 
 %syntax_error {
-    s->error_with_context(
-        op::format("syntax error: unexpected token '{}'", TOKEN.as_str()), 
-                   TOKEN.line, TOKEN.col);
-
-    int n = sizeof(yyTokenName) / sizeof(yyTokenName[0]);
-    for (int i = 0; i < n; ++i) {
-        int a = yy_find_shift_action(yypParser, (YYCODETYPE) i);
-        if (a < YYNSTATE + YYNRULE) {
-            op::printf("possibly expected: {}\n", yyTokenName[i]);
-        }
-    }
+    s->errors.emplace_back(new SyntaxError(
+        op::format("unexpected token '{}'", TOKEN.as_str()), 
+        s->src, TOKEN.line, TOKEN.col));
+    /* int n = sizeof(yyTokenName) / sizeof(yyTokenName[0]); */
+    /* for (int i = 0; i < n; ++i) { */
+    /*     int a = yy_find_shift_action(yypParser, (YYCODETYPE) i); */
+    /*     if (a < YYNSTATE + YYNRULE) { */
+    /*         op::printf("possibly expected: {}\n", yyTokenName[i]); */
+    /*     } */
+    /* } */
 }
 
 %stack_overflow {
@@ -60,7 +59,6 @@ template<class T> static T get(T* p);
 
 
 program ::= onl compound_stmt(A) onl. {
-    op::printf("Finished parse with {} error(s).\n", s->num_errors);
     s->program.reset(A);
 }
 

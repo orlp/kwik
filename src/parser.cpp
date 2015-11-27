@@ -18,9 +18,18 @@ namespace kwik {
         auto lex = Lexer{state};
 
         while (true) {
-            auto token = lex.get_token();
-            KwikParse(parser, token.type, token, &state);
-            if (token.type == 0) break;
+            try {
+                auto token = lex.get_token();
+                KwikParse(parser, token.type, token, &state);
+                if (token.type == 0) break;
+            } catch (const CompilationError& e) {
+                state.errors.emplace_back(e.clone());
+            }
+        }
+
+        op::printf("Finished parse with {} error(s).\n", state.errors.size());
+        for (auto& error : state.errors) {
+            op::print(error->what());
         }
     }
 }
