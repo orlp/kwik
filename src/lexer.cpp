@@ -82,17 +82,21 @@ namespace kwik {
     Lexer::Lexer(ParseState& s)
         : s(s), line(1), col(1), it(s.src.code.data()) { }
 
-    void Lexer::throw_unexpected_char(uint32_t c, int line, int col) {
+    SourceRef Lexer::getref(size_t line, size_t col) {
+        return SourceRef{s.src, line, col};
+    }
+
+    void Lexer::throw_unexpected_char(uint32_t c, size_t line, size_t col) {
         std::string errmsg = "unexpected character: '";
         utf8::append(c, std::back_inserter(errmsg));
         errmsg += "'";
-        throw SyntaxError(errmsg, s.src, line, col);
+        throw SyntaxError(errmsg, getref(line, col));
     }
 
     Token Lexer::lex_num() {
         int base = 10;
         bool floating = false;
-        int startcol = col;
+        size_t startcol = col;
 
         auto n = *std::next(it);
         if (*it == U'0' && (n == U'b' || n == U'o' || n == U'x')) {
@@ -132,17 +136,17 @@ namespace kwik {
         if (suffix.size()) {
             if (suffix == "f32" || suffix == "f64") {
                 if (base != 10) {
-                    throw SyntaxError("invalid base for suffix '" + suffix + "'", s.src, line, startcol);
+                    throw SyntaxError("invalid base for suffix '" + suffix + "'", getref(line, startcol));
                 }
                 floating = true;
             } else if (floating) {
-                throw SyntaxError("invalid float suffix '" + suffix + "'", s.src, line, suffix_col);
+                throw SyntaxError("invalid float suffix '" + suffix + "'", getref(line, suffix_col));
             } else if (!int_suffixes_set.count(suffix)) {
-                throw SyntaxError("invalid integer suffix '" + suffix + "'", s.src, line, suffix_col);
+                throw SyntaxError("invalid integer suffix '" + suffix + "'", getref(line, suffix_col));
             }
         }
 
-        Token tok(KWIK_TOK_NUM, line, startcol, value + suffix);
+        Token tok(KWIK_TOK_NUM, value + suffix, getref(line, startcol));
         tok.number.base = base;
         tok.number.floating = floating;
         tok.number.suffix_len = suffix.size();
@@ -150,18 +154,18 @@ namespace kwik {
     }
 
     Token Lexer::lex_ident() {
-        int startcol = col++;
+        size_t startcol = col++;
         std::string ident(1, *it++);
         while (aisalnum(*it) || *it == U'_') { ident += *it++; ++col; }
 
         auto it = keywords.find(ident);
-        if (it == keywords.end()) return {KWIK_TOK_NAME, line, startcol, ident};
-        return {it->second, line, startcol};
+        if (it == keywords.end()) return {KWIK_TOK_NAME, ident, getref(line, startcol)};
+        return {it->second, getref(line, startcol)};
     }
 
     Token Lexer::get_token() {
         while (true) {
-            int startcol = col;
+            size_t startcol = col;
             uint32_t c = *it;
             if (c >= 128) {
                 ++it; // Skip the bad character.
@@ -177,13 +181,13 @@ namespace kwik {
                 throw_unexpected_char(c, line, startcol);
             case I::NULL_EOF:
                 ++it; ++col;
-                return {0, line, startcol};
+                return {0, getref(line, startcol)};
             case I::SPACE:
                 ++it; ++col;
                 break;
             case I::NEWLINE:
                 ++it; col = 1; ++line;
-                if (s.nested_paren == 0) return {KWIK_TOK_NL, line-1, startcol};
+                if (s.nested_paren == 0) return {KWIK_TOK_NL, getref(line-1, startcol)};
                 break;
             case I::COMMENT:
                 do { ++it; ++col; } while (*it && *it != U'\n');
@@ -198,7 +202,7 @@ namespace kwik {
                 throw_unexpected_char(c, line, startcol);
             case I::SIMPLE_TOK:
                 ++it; ++col;
-                return {simple_tok_table[c], line, startcol};
+                return {simple_tok_table[c], getref(line, startcol)};
             }
         }
     }

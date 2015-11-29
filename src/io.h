@@ -16,6 +16,12 @@ namespace kwik {
         std::string code;
         std::vector<std::string> lines;
     };
+
+    struct SourceRef {
+        const Source& src;
+        size_t line;
+        size_t col;
+    };
     
     Source read_stdin();
     Source read_file(const std::string& filename);

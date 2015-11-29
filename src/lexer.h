@@ -7,6 +7,7 @@
 
 #include "parser.h"
 #include "token.h"
+#include "io.h"
 
 
 namespace kwik {
@@ -16,12 +17,13 @@ namespace kwik {
         Token get_token();
 
     private:
-        void throw_unexpected_char(uint32_t c, int line, int col);
+        SourceRef getref(size_t line, size_t col);
+        void throw_unexpected_char(uint32_t c, size_t line, size_t col);
         Token lex_num();
         Token lex_ident();
 
         ParseState& s;
-        int line, col;
+        size_t line, col;
         utf8::unchecked::iterator<const char*> it;
     };
 }

@@ -5,22 +5,22 @@
 #include <array>
 
 #include "grammar.h"
+#include "io.h"
 
 
 namespace kwik {
     struct Token {
-        Token(int type, int line, int col)
-        : type(type), line(line), col(col), val() { }
+        Token(int type, SourceRef ref)
+        : type(type), val(), ref(ref) { }
 
-        Token(int type, int line, int col, const std::string& val)
-        : type(type), line(line), col(col), val(val) { }
+        Token(int type, const std::string& val, SourceRef ref)
+        : type(type), val(val), ref(ref) { }
 
         ~Token() { }
 
         int type;
-        int line;
-        int col;
         std::string val;
+        SourceRef ref;
 
         union {
             struct {

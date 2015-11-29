@@ -7,12 +7,8 @@
 
 namespace kwik {
     struct CompilationError : public virtual op::BaseException {
-        const Source& src;
-        size_t line;
-        size_t col;
-        
-        CompilationError(const Source& src, size_t line, size_t col)
-            : src(src) , line(line), col(col), formatted_what() { }
+        SourceRef ref;
+        CompilationError(SourceRef ref) : ref(ref), formatted_what() { }
 
         virtual const char* error_type() const noexcept { return "compilation error"; }
         virtual CompilationError* clone() const { return new CompilationError(*this); }
@@ -31,8 +27,9 @@ namespace kwik {
 
         virtual std::string format_what() const {
             return op::format("{}:{}:{}: {}: {}\n    {}\n{}^",
-                              src.name, line, col, this->error_type(), op::BaseException::what(), 
-                              src.lines[line - 1], std::string(col - 1 + 4, ' '));
+                              ref.src.name, ref.line, ref.col, this->error_type(),
+                              op::BaseException::what(), 
+                              ref.src.lines[ref.line - 1], std::string(ref.col - 1 + 4, ' '));
         }
 
     private:
@@ -40,11 +37,19 @@ namespace kwik {
     };
 
     struct SyntaxError : public virtual CompilationError {
-        SyntaxError(std::string msg, const Source& src, size_t line, size_t col)
-            : op::BaseException(std::move(msg)), CompilationError(src, line, col) { }
+        SyntaxError(std::string msg, SourceRef ref)
+            : op::BaseException(std::move(msg)), CompilationError(ref) { }
         const char* error_type() const noexcept override { return "syntax error"; }
         CompilationError* clone() const override { return new SyntaxError(*this); }
     protected: SyntaxError() { }
+    };
+
+    struct SemanticError : public virtual CompilationError {
+        SemanticError(std::string msg, SourceRef ref)
+            : op::BaseException(std::move(msg)), CompilationError(ref) { }
+        const char* error_type() const noexcept override { return "error"; }
+        CompilationError* clone() const override { return new SemanticError(*this); }
+    protected: SemanticError() { }
     };
 
     struct EncodingError : public virtual op::BaseException {

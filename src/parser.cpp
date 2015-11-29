@@ -28,6 +28,13 @@ namespace kwik {
             }
         }
 
+        ast::Environment global_env(nullptr);
+        try {
+            state.program->check(global_env);
+        } catch (const CompilationError& e) {
+            state.errors.emplace_back(e.clone());
+        }
+
         op::printf("Finished parse with {} error(s).\n", state.errors.size());
         for (auto& error : state.errors) {
             op::print(error->what());
